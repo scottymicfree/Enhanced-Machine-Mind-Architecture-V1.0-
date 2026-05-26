@@ -1,0 +1,115 @@
+syntax = "proto3";
+
+package emma.core.v1;
+
+// -----------------------------------------------------------------------------
+// EVENT TAXONOMY
+// -----------------------------------------------------------------------------
+// Represents the fundamental operational events across the E.M.M.A. distributed architecture.
+enum EventType {
+  EVENT_TYPE_UNSPECIFIED = 0;
+  
+  // Cognitive Engine Events
+  EVENT_TYPE_SYSTEM_1_FAST_REPLY = 100;
+  EVENT_TYPE_SYSTEM_2_DEEP_THOUGHT = 101;
+  EVENT_TYPE_MOE_ROUTED = 102;
+  
+  // Memory System Events
+  EVENT_TYPE_STM_ENCODED = 200;
+  EVENT_TYPE_N2_SPINDLE_PRUNE = 201;
+  EVENT_TYPE_SEMANTIC_CONSOLIDATION = 202;
+  
+  // Security (Aegis) Events
+  EVENT_TYPE_AEGIS_NETWORK_INTERCEPT = 300;
+  EVENT_TYPE_AEGIS_TARPIT_TRIGGER = 301;
+  EVENT_TYPE_AEGIS_MICROVM_SPAWN = 302;
+  
+  // OSINT & Evolution Events
+  EVENT_TYPE_OSINT_GRAPH_MUTATION = 400;
+  EVENT_TYPE_EVOLUTION_SANDBOX_EVAL = 500;
+}
+
+// -----------------------------------------------------------------------------
+// MESSAGE SCHEMAS
+// -----------------------------------------------------------------------------
+
+message EventPayload {
+  string event_id = 1;
+  EventType type = 2;
+  int64 timestamp_ms = 3;
+  string source_subsystem = 4;
+  bytes raw_data = 5; // Serialized JSON or binary payload specific to the event
+  string cryptographic_signature = 6;
+}
+
+message HardwareMetrics {
+  string node_id = 1;
+  float cpu_usage_pct = 2;
+  float ram_usage_pct = 3;
+  float vram_usage_pct = 4;
+  float system_temperature_c = 5;
+  int64 active_microvms = 6;
+  int64 network_rx_bytes = 7;
+  int64 network_tx_bytes = 8;
+}
+
+message MemoryVector {
+  string memory_id = 1;
+  float x = 2;
+  float y = 3;
+  float z = 4;
+  bool is_decay_active = 5;
+  string semantic_label = 6;
+  float consolidation_strength = 7;
+}
+
+message OSINTGraphNode {
+  string node_id = 1;
+  string entity_type = 2; // e.g., PERSON, ORG, IP_ADDRESS
+  string entity_value = 3;
+  float confidence_score = 4;
+  repeated string connected_edge_ids = 5;
+  int64 last_observed_ms = 6;
+}
+
+message StateMutation {
+  string mutation_id = 1;
+  string target_subsystem = 2;
+  string command = 3;
+  string override_type = 4; // e.g., MANUAL, AUTONOMIC
+  string payload_json = 5;
+}
+
+// -----------------------------------------------------------------------------
+// SERVICE DEFINITIONS
+// -----------------------------------------------------------------------------
+
+// CognitiveService handles requests related to reasoning, MoE routing, and intellect tasks.
+service CognitiveService {
+  // Submits a complex query for System 2 reasoning; returns an asynchronous event stream of thoughts.
+  rpc SubmitReasoningTask(EventPayload) returns (stream EventPayload);
+  
+  // Synchronous query for System 1 fast-replies.
+  rpc FastQuery(EventPayload) returns (EventPayload);
+}
+
+// TelemetryService handles the firehose of real-time operational data across the cluster.
+service TelemetryService {
+  // Bi-directional stream: UI sends UI state/mutations, backend sends live metrics & memory vectors.
+  // Routing Logic:
+  // - Client -> Server: UI layout states, priority focus zones, manual overrides (StateMutation)
+  // - Server -> Client: Aggregated HardwareMetrics, active MemoryVectors (for WebGPU), EventPayloads
+  rpc StreamTelemetry(stream StateMutation) returns (stream HardwareMetrics);
+  
+  // Dedicated stream for real-time memory spatial visualization.
+  rpc StreamActiveMemories(EventPayload) returns (stream MemoryVector);
+}
+
+// SecurityService bridges the Aegis active defense engine to the orchestration layer.
+service SecurityService {
+  // Pushes a new JA4 fingerprint or anomaly alert directly into the Aegis decision engine.
+  rpc ReportAnomaly(EventPayload) returns (StateMutation);
+  
+  // Subscribes to active tarpit triggers and microVM isolation events.
+  rpc SubscribeSecurityAlerts(EventPayload) returns (stream EventPayload);
+}

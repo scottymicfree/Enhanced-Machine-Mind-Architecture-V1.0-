@@ -1,0 +1,148 @@
+syntax = "proto3";
+
+package emma.kernel.v1;
+
+option go_package = "emma/kernel/v1;kernelv1";
+option java_multiple_files = true;
+option java_package = "com.emma.kernel.v1";
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/struct.proto";
+
+// --- EVENT ENVELOPE TAXONOMY ---
+
+enum Priority {
+  PRIORITY_UNSPECIFIED = 0;
+  PRIORITY_LOW = 1;      // Telemetry, non-critical UI logs, metric scraping
+  PRIORITY_NORMAL = 2;   // OSINT ingestion, standard memory queries
+  PRIORITY_HIGH = 3;     // System 2 reasoning tasks, user mutations, DB commits
+  PRIORITY_CRITICAL = 4; // Aegis security alerts, kernel backpressure, fallback overrides
+}
+
+enum EventType {
+  EVENT_TYPE_UNSPECIFIED = 0;
+  EVENT_TYPE_HEARTBEAT = 1;
+  EVENT_TYPE_HARDWARE_SATURATION = 2;
+  EVENT_TYPE_SYSTEM_1_FAST_REPLY = 3;
+  EVENT_TYPE_SYSTEM_2_DEEP_THOUGHT = 4;
+  EVENT_TYPE_AEGIS_TARPIT_TRIGGER = 5;
+  EVENT_TYPE_AEGIS_SANDBOX_ESCAPED = 6;
+  EVENT_TYPE_N2_SPINDLE_PRUNE = 7;
+  EVENT_TYPE_OSINT_GRAPH_MUTATION = 8;
+  EVENT_TYPE_EVOLUTION_MUTATION_PROPOSED = 9;
+  EVENT_TYPE_STATE_ROLLBACK_COMMAND = 10;
+}
+
+// --- MASTER ENVELOPE ---
+
+message EmmaEventEnvelope {
+  string event_id = 1;                     // RFC4122 UUID v4
+  google.protobuf.Timestamp timestamp = 2;  // Epoch microseconds
+  string schema_version = 3;               // SemVer (e.g., "1.0.0")
+  Priority priority = 4;                   // Priority queue rank
+  string sender_id = 5;                    // Originating node UUID / name
+  bytes signature = 6;                     // Ed25519 payload signature
+  EventType event_type = 7;                // Declared event type for fast routing
+  
+  oneof payload {
+    Heartbeat heartbeat = 8;
+    HardwareSaturationAlert saturation_alert = 9;
+    CognitiveInferenceResult inference_result = 10;
+    TarpitTrigger tarpit_trigger = 11;
+    MemoryDecayTick decay_tick = 12;
+    OSINTGraphMutation graph_mutation = 13;
+    StateMutation state_mutation = 14;
+  }
+}
+
+// --- ENVELOPE PAYLOADS ---
+
+message Heartbeat {
+  google.protobuf.Timestamp last_ping = 1;
+  string node_status = 2;
+}
+
+message HardwareSaturationAlert {
+  double cpu_load_avg = 1;
+  double vram_utilization_bytes = 2;
+  double vram_capacity_bytes = 3;
+  uint32 gpu_temperature_celsius = 4;
+  double nvlink_bandwidth_gbs = 5;
+  bool trigger_quantized_fallback = 6;     // If true, force system to drop to FP8/INT4 experts
+}
+
+message CognitiveInferenceResult {
+  string trace_id = 1;                     // Tracks lineage to initial prompt
+  string system_mode = 2;                  // "SYSTEM_1" or "SYSTEM_2"
+  string execution_trace = 3;              // Raw markdown of reasoning path / CoT
+  string text_output = 4;                  // Final user-facing message
+  repeated string active_experts = 5;      // Specialized MoE networks involved
+  double confidence_score = 6;             // Range 0.0 - 1.0
+}
+
+message TarpitTrigger {
+  string source_ip = 1;
+  string ja4_fingerprint = 2;
+  uint32 target_port = 3;
+  uint64 active_connections_held = 4;
+  string sandbox_vm_id = 5;                // Assigned Firecracker VM instance
+  bool phantom_fs_breached = 6;            // Honeytoken access status
+}
+
+message MemoryDecayTick {
+  google.protobuf.Timestamp decay_epoch = 1;
+  uint32 vectors_evaluated = 2;
+  uint32 vectors_pruned = 3;
+  double average_relevance_remaining = 4;
+}
+
+message OSINTGraphMutation {
+  string session_id = 1;
+  repeated Node nodes_added = 2;
+  repeated Edge edges_added = 3;
+  
+  message Node {
+    string id = 1;
+    string type = 2;                       // "ENTITY", "IP", "LOCATION", "CRYPTONYM"
+    string label = 3;
+    google.protobuf.Struct properties = 4; // Arbitrary dynamic metadata
+  }
+  
+  message Edge {
+    string source = 1;
+    string target = 2;
+    string relation = 3;                   // "ASSOCIATED_WITH", "RESOLVES_TO"
+    double weight = 4;
+  }
+}
+
+message StateMutation {
+  string target_module = 1;                // "CORE", "AEGIS", "EVOLUTION"
+  string action_command = 2;               // "LOCKDOWN", "DISABLE_TRN", "APPROVE_MUTATION"
+  google.protobuf.Struct parameters = 3;
+  string authorized_user_id = 4;           // Verified Google Client identifier
+}
+
+// --- EXECUTION SERVICES ---
+
+message ToolCallRequest {
+  string tool_id = 1;
+  string tool_name = 2;
+  google.protobuf.Struct arguments = 3;
+  string cryptographic_trace_id = 4;       // Signature provenance validation
+}
+
+message ToolCallResponse {
+  string tool_id = 1;
+  bool is_successful = 2;
+  google.protobuf.Struct output = 3;
+  string error_message = 4;
+}
+
+service EmmaKernelBus {
+  // Bi-directional stream for continuous telemetry, state mutations, and security alerts
+  rpc StreamTelemetry(stream EmmaEventEnvelope) returns (stream EmmaEventEnvelope);
+  
+  // Real-time sandboxed tool calls invoked by System 2 during active operations
+  rpc ExecuteToolCall(ToolCallRequest) returns (ToolCallResponse);
+}
