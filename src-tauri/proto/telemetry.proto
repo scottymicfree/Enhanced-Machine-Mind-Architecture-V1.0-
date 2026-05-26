@@ -1,0 +1,52 @@
+syntax = "proto3";
+package telemetry;
+
+service Dashboard {
+  // Streams cognitive state from the linux core to the Windows desktop
+  rpc StreamCognitiveTelemetry(stream StateMutation) returns (stream TelemetryPacket);
+  
+  // Streams memory vectors from the Weaviate LTM database
+  rpc StreamMemoryVectors(MemoryRequest) returns (stream MemoryVector);
+}
+
+message StateMutation {
+  string command = 1;         // E.g., FORCE_GAMMA, FORCE_DELTA
+  string override_type = 2;   // Origin of request
+}
+
+message TelemetryPacket {
+  string cognitive_mode = 1;     // GAMMA, BETA, ALPHA, THETA, DELTA
+  bool trn_gating_status = 2;    // RoSais security status
+  repeated int32 active_nodes = 3; // The Expert nodes currently firing
+  HardwareMetrics hardware = 4;
+  ThreatAlert threat_alert = 5;
+}
+
+message HardwareMetrics {
+  float vram_fragmentation = 1;
+  float nvlink_bandwidth = 2;
+  float power_draw = 3;
+  float system_load = 4;
+  float mem_usage_percent = 5;
+  bool gpu_detected = 6;
+}
+
+message ThreatAlert {
+  string alert_id = 1;
+  string severity = 2;
+  string source_ip = 3;
+  string targeted_port = 4;
+}
+
+message MemoryVector {
+  float x = 1;
+  float y = 2;
+  float z = 3;
+  bool decay_status = 4;
+  string cluster_id = 5;
+}
+
+message MemoryRequest {
+  string filter = 1;
+}
+

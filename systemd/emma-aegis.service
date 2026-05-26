@@ -1,0 +1,26 @@
+[Unit]
+Description=E.M.M.A. Aegis-Pandora Active Defense & Telemetry Daemon
+After=network.target docker.service
+Requires=docker.service
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/emma
+EnvironmentFile=/opt/emma/state/.env
+ExecStartPre=/usr/bin/env bash /opt/emma/scripts/init_aegis_hardware.sh
+ExecStart=/usr/bin/env python3 /opt/emma/edge_runtime/kernel_scheduler.py
+
+# Security Hardening: Enforce strict process caps to protect host environment
+User=root
+Group=root
+Capabilities=CAP_NET_ADMIN,CAP_SYS_ADMIN,CAP_SYS_RAWIO
+LimitNOFILE=65535
+
+# Keep alive parameters
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
